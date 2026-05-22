@@ -53,7 +53,7 @@ WHERE session_id = @@SPID
 
 def _get_lojas_conn_params():
     """Lê credenciais ODBC das lojas do .env."""
-    return os.getenv("LOJAS_UID", "SA"), os.getenv("LOJAS_PWD", "ERPM")
+    return os.getenv("LOJAS_UID", "sa"), os.getenv("LOJAS_PWD", "sua_senha_aqui")
 
 
 def _connect_target(ip: str, database: str, timeout: int = 5):

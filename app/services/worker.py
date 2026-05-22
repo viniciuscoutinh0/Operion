@@ -226,9 +226,9 @@ def run_script_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv: s
     status_final = "concluido"
 
     try:
-        update_etapa("Conectando na Retaguarda (10.10.0.3)", "rodando")
+        update_etapa(f"Conectando na Retaguarda ({worker.retaguarda_ip})", "rodando")
         store_info = worker.get_store_info(loja_id)
-        update_etapa("Conectando na Retaguarda (10.10.0.3)", "sucesso")
+        update_etapa(f"Conectando na Retaguarda ({worker.retaguarda_ip})", "sucesso")
         
         # 1. Alvo SERVIDOR ou AMBOS: roda sql_servidor no Servidor (banco LOJA)
         if alvo in ["SERVIDOR", "AMBOS"] and sql_servidor:
