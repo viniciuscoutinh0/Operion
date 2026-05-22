@@ -21,7 +21,7 @@ Exemplo de estrutura do `.env`:
 
 ```env
 # 1. JWT & Segurança da API
-SECRET_KEY=94b7e8d6f5c3a1b2e9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6
+SECRET_KEY=SUA_SECRET_KEY
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=600
 
@@ -29,14 +29,14 @@ ACCESS_TOKEN_EXPIRE_MINUTES=600
 DATABASE_URL=sqlite:///./parametrizacao.db
 
 # 3. Credenciais da Retaguarda
-RETAGUARDA_IP=10.10.0.3
+RETAGUARDA_IP=SERVIDOR
 RETAGUARDA_DB=RETAGUARDA_PRODUCAO
 RETAGUARDA_USER=usuario_aqui
 RETAGUARDA_PWD=senha_aqui
 
 # 4. Credenciais das Lojas (Servidores e PDVs - ODBC)
-LOJAS_UID=SA
-LOJAS_PWD=ERPM
+LOJAS_UID=USUARIO
+LOJAS_PWD=SENHA
 ```
 
 > **Atenção:** Se não tiver o arquivo `parametrizacao.db`, o FastAPI vai criá-lo automaticamente ao rodar, porém vazio (sem usuário). Você precisará criá-lo via script ou via API.
