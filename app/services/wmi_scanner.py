@@ -129,15 +129,39 @@ def _query_ip_local(cursor) -> str | None:
 
 def _parse_os_version(full_ver: str) -> str:
     """Extrai a versão do Windows da string @@VERSION."""
+    if not full_ver:
+        return "Windows"
+
+    # 1. Tenta encontrar termos explícitos comuns
+    for term in ["Windows 11", "Windows 10", "Windows Server 2022", "Windows Server 2019", "Windows Server 2016", "Windows Server 2012 R2", "Windows Server 2012", "Windows Server 2008 R2"]:
+        if term in full_ver:
+            build_part = ""
+            if "Build" in full_ver:
+                try:
+                    build = full_ver.split("Build")[1].strip().split(")")[0].strip().split()[0].rstrip(":")
+                    build_part = f" (Build {build})"
+                except Exception:
+                    pass
+            return f"{term}{build_part}"
+
+    # 2. Fallback para mapeamento de Windows NT
     os_friendly = "Windows"
     if "Windows NT" in full_ver:
         try:
             nt_part = full_ver.split("Windows NT")[1].strip()
             nt_ver  = nt_part.split()[0]
+            build_val = 0
             build_part = ""
             if "Build" in nt_part:
                 build = nt_part.split("Build")[1].strip().split(")")[0].strip().rstrip(":")
                 build_part = f" (Build {build})"
+                try:
+                    build_digits = "".join([c for c in build if c.isdigit()])
+                    if build_digits:
+                        build_val = int(build_digits)
+                except Exception:
+                    pass
+
             nt_map = {
                 "10.0": "Windows 10/11",
                 "6.3":  "Windows 8.1 / Server 2012 R2",
@@ -145,7 +169,15 @@ def _parse_os_version(full_ver: str) -> str:
                 "6.1":  "Windows 7 / Server 2008 R2",
                 "5.2":  "Windows Server 2003",
             }
-            os_friendly = nt_map.get(nt_ver, f"Windows NT {nt_ver}") + build_part
+            
+            os_name = nt_map.get(nt_ver, f"Windows NT {nt_ver}")
+            if nt_ver == "10.0" and build_val > 0:
+                if build_val >= 22000:
+                    os_name = "Windows 11"
+                else:
+                    os_name = "Windows 10"
+                    
+            os_friendly = os_name + build_part
         except Exception:
             pass
     return os_friendly
@@ -165,6 +197,7 @@ def scan_pc(ip: str, tipo: str, caixa_id: int | None = None) -> dict:
         "mac_address": None,
         "cpu_nucleos":  None,
         "ram_total_mb": None,
+        "db_size_mb":   None,
         "os_version":     None,
         "uptime_segundos": None,
         "sql_version": None,
@@ -219,6 +252,22 @@ def scan_pc(ip: str, tipo: str, caixa_id: int | None = None) -> dict:
         # ── 3. IP local via sessão SQL ativa ───────────────────────────────
         ip_local = _query_ip_local(cursor)
 
+        # ── 4. Tamanho do Banco de Dados ───────────────────────────────────
+        db_size_mb = None
+        try:
+            cursor.execute("SELECT SUM(CAST(size AS BIGINT)) * 8 / 1024")
+            db_row = cursor.fetchone()
+            if db_row and db_row[0] is not None:
+                db_size_mb = int(db_row[0])
+        except Exception as e_db:
+            try:
+                cursor.execute("SELECT SUM(CAST(size AS BIGINT)) * 8 / 1024 FROM sys.database_files")
+                db_row = cursor.fetchone()
+                if db_row and db_row[0] is not None:
+                    db_size_mb = int(db_row[0])
+            except Exception as e_db_fallback:
+                log.warning(f"[{ip}] Erro ao obter tamanho do banco: {e_db_fallback}")
+
         conn.close()
 
         base.update({
@@ -226,6 +275,7 @@ def scan_pc(ip: str, tipo: str, caixa_id: int | None = None) -> dict:
             "ip_local":    ip_local,
             "cpu_nucleos":  cpu_nucleos,
             "ram_total_mb": ram_mb,
+            "db_size_mb":   db_size_mb,
             "os_version":     os_version,
             "uptime_segundos": uptime_seg,
             "sql_version": sql_version,

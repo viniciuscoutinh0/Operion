@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Monitor, Wifi, WifiOff, AlertTriangle, RefreshCw, Server, ShoppingCart,
          User, Clock, Cpu, MemoryStick, Database, Network, HardDrive } from 'lucide-react';
 
-const API = 'http://localhost:8000/api';
+const API = 'http://127.0.0.1:8080/api';
 
 function formatUptime(s) {
   if (s == null) return '—';
@@ -15,6 +15,12 @@ function formatUptime(s) {
 function formatRam(mb) {
   if (mb == null) return null;
   if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`;
+  return `${mb} MB`;
+}
+
+function formatDbSize(mb) {
+  if (mb == null) return null;
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
   return `${mb} MB`;
 }
 
@@ -156,6 +162,7 @@ function PcCard({ pc }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
             <InfoChip icon={<Cpu size={11} />}         label="CPU"    value={pc.cpu_nucleos ? `${pc.cpu_nucleos} núcleos` : null}    accent="rgba(251,191,36,0.4)" />
             <InfoChip icon={<MemoryStick size={11} />}  label="RAM"    value={formatRam(pc.ram_total_mb)}                              accent="rgba(52,211,153,0.4)" />
+            <InfoChip icon={<Database size={11} />}     label="Banco"  value={formatDbSize(pc.db_size_mb)}                             accent="rgba(244,114,182,0.4)" />
             <InfoChip icon={<Network size={11} />}      label="IP"     value={pc.ip_local || pc.ip}                                    accent="rgba(96,165,250,0.4)" />
             <InfoChip icon={<Clock size={11} />}        label="Uptime" value={formatUptime(pc.uptime_segundos)}                        accent="rgba(167,139,250,0.4)" />
             {pc.os_version && (

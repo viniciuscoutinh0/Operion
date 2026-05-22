@@ -36,6 +36,7 @@ def _upsert_snapshot(db: Session, data: dict):
         # Hardware
         existing.cpu_nucleos   = data.get("cpu_nucleos")
         existing.ram_total_mb  = data.get("ram_total_mb")
+        existing.db_size_mb    = data.get("db_size_mb")
         # OS
         existing.os_version    = data.get("os_version")
         existing.uptime_segundos = data.get("uptime_segundos")
@@ -60,6 +61,7 @@ def _upsert_snapshot(db: Session, data: dict):
             # Hardware
             cpu_nucleos=data.get("cpu_nucleos"),
             ram_total_mb=data.get("ram_total_mb"),
+            db_size_mb=data.get("db_size_mb"),
             # OS
             os_version=data.get("os_version"),
             uptime_segundos=data.get("uptime_segundos"),

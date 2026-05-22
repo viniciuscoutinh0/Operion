@@ -22,3 +22,9 @@ def get_db():
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    try:
+        from sqlalchemy import text
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE pc_status_snapshots ADD COLUMN db_size_mb BIGINT"))
+    except Exception:
+        pass

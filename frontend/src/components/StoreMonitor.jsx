@@ -19,6 +19,11 @@ function formatRam(mb) {
   return mb >= 1024 ? `${(mb / 1024).toFixed(0)} GB` : `${mb} MB`;
 }
 
+function formatDbSize(mb) {
+  if (mb == null) return null;
+  return mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`;
+}
+
 function sqlVersionToYear(version) {
   if (!version) return 'SQL Server';
   const major = parseFloat(version.split('.').slice(0, 2).join('.'));
@@ -88,6 +93,7 @@ function WmiPanel({ pcData }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 6 }}>
         <PcInfoChip icon={<Cpu size={10} />}        label="CPU"    value={pcData.cpu_nucleos ? `${pcData.cpu_nucleos} núcleos` : null} color="#fbbf24" />
         <PcInfoChip icon={<MemoryStick size={10} />} label="RAM"    value={formatRam(pcData.ram_total_mb)}                               color="#34d399" />
+        <PcInfoChip icon={<Database size={10} />}    label="Banco"  value={formatDbSize(pcData.db_size_mb)}                              color="#f472b6" />
         <PcInfoChip icon={<Network size={10} />}     label="IP"     value={pcData.ip_local || pcData.ip}                                  color="#60a5fa" />
         <PcInfoChip icon={<Clock size={10} />}       label="Uptime" value={formatUptime(pcData.uptime_segundos) ? `↑ ${formatUptime(pcData.uptime_segundos)}` : null} color="#a78bfa" />
         {pcData.os_version && (

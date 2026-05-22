@@ -18,6 +18,7 @@ class PcStatusResponse(BaseModel):
     # Hardware
     cpu_nucleos:  Optional[int] = None
     ram_total_mb: Optional[int] = None
+    db_size_mb:   Optional[int] = None
 
     # OS
     os_version:      Optional[str] = None

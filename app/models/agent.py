@@ -26,6 +26,7 @@ class PcStatusSnapshot(Base):
     # ── Hardware ──────────────────────────────────────────────────
     cpu_nucleos  = Column(Integer, nullable=True)          # Quantidade de CPUs lógicas
     ram_total_mb = Column(BigInteger, nullable=True)       # RAM total em MB
+    db_size_mb   = Column(BigInteger, nullable=True)       # Tamanho do banco em MB
 
     # ── Sistema Operacional ───────────────────────────────────────
     os_version       = Column(String(255), nullable=True)
