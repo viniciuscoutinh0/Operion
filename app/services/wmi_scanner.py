@@ -23,6 +23,34 @@ load_dotenv()
 log = logging.getLogger("wmi_scanner")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
+
+def _build_connection_string(server, db, uid, pwd, timeout=None) -> str:
+    drivers = pyodbc.drivers()
+    if "ODBC Driver 18 for SQL Server" in drivers:
+        driver = "ODBC Driver 18 for SQL Server"
+        trust = "TrustServerCertificate=yes;"
+    elif "ODBC Driver 17 for SQL Server" in drivers:
+        driver = "ODBC Driver 17 for SQL Server"
+        trust = ""
+    elif "SQL Server Native Client 11.0" in drivers:
+        driver = "SQL Server Native Client 11.0"
+        trust = ""
+    else:
+        driver = "SQL Server"
+        trust = ""
+        
+    conn_str = (
+        f"DRIVER={{{driver}}};"
+        f"SERVER={server};"
+        f"DATABASE={db};"
+        f"UID={uid};"
+        f"PWD={pwd};"
+        f"{trust}"
+    )
+    if timeout is not None:
+        conn_str += f"LoginTimeout={timeout};"
+    return conn_str
+
 # ── Query base — 100% compatível com SQL Server 2008+ ───────────────────────
 # NÃO inclui physical_memory_kb (não existe no 2008) — RAM é buscada separado
 SQL_PC_INFO = """
@@ -60,15 +88,8 @@ def _connect_target(ip: str, database: str, timeout: int = 5):
     """Abre conexão ODBC no alvo (servidor ou PDV). Retorna None se falhar."""
     uid, pwd = _get_lojas_conn_params()
     try:
-        conn = pyodbc.connect(
-            f"DRIVER={{SQL Server}};"
-            f"SERVER={ip};"
-            f"DATABASE={database};"
-            f"UID={uid};"
-            f"PWD={pwd};"
-            f"LoginTimeout={timeout};",
-            timeout=timeout
-        )
+        conn_str = _build_connection_string(ip, database, uid, pwd, timeout=timeout)
+        conn = pyodbc.connect(conn_str, timeout=timeout)
         return conn
     except Exception:
         return None

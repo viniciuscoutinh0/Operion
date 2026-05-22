@@ -10,6 +10,34 @@ class WorkerExecutionError(Exception):
     pass
 
 
+def _build_connection_string(server, db, uid, pwd, timeout=None) -> str:
+    drivers = pyodbc.drivers()
+    if "ODBC Driver 18 for SQL Server" in drivers:
+        driver = "ODBC Driver 18 for SQL Server"
+        trust = "TrustServerCertificate=yes;"
+    elif "ODBC Driver 17 for SQL Server" in drivers:
+        driver = "ODBC Driver 17 for SQL Server"
+        trust = ""
+    elif "SQL Server Native Client 11.0" in drivers:
+        driver = "SQL Server Native Client 11.0"
+        trust = ""
+    else:
+        driver = "SQL Server"
+        trust = ""
+        
+    conn_str = (
+        f"DRIVER={{{driver}}};"
+        f"SERVER={server};"
+        f"DATABASE={db};"
+        f"UID={uid};"
+        f"PWD={pwd};"
+        f"{trust}"
+    )
+    if timeout is not None:
+        conn_str += f"LoginTimeout={timeout};"
+    return conn_str
+
+
 def _is_reachable(ip_com_instancia: str, timeout_seg: float = 3.0) -> bool:
     """
     Faz um TCP ping na porta 1433 do host.
@@ -41,30 +69,17 @@ class OdbcWorker:
 
     def connect_retaguarda(self):
         try:
-            conn = pyodbc.connect(
-                f'DRIVER={{SQL Server Native Client 11.0}};'
-                f'SERVER={self.retaguarda_ip};'
-                f'DATABASE={self.retaguarda_db};'
-                f'UID={self.user};'
-                f'PWD={self.password}',
+            conn_str = _build_connection_string(
+                self.retaguarda_ip,
+                self.retaguarda_db,
+                self.user,
+                self.password,
                 timeout=5
             )
-            return conn
+            return pyodbc.connect(conn_str, timeout=5)
         except Exception as e:
-            # Fallback for standard SQL Server Driver if Native Client is missing
-            try:
-                conn = pyodbc.connect(
-                    f'DRIVER={{SQL Server}};'
-                    f'SERVER={self.retaguarda_ip};'
-                    f'DATABASE={self.retaguarda_db};'
-                    f'UID={self.user};'
-                    f'PWD={self.password}',
-                    timeout=5
-                )
-                return conn
-            except Exception as inner_e:
-                print(f"[ERRO] [WORKER] Erro ao conectar na Retaguarda: {inner_e}")
-                raise WorkerExecutionError(f"Falha de conexão com a Retaguarda: {inner_e}")
+            print(f"[ERRO] [WORKER] Erro ao conectar na Retaguarda: {e}")
+            raise WorkerExecutionError(f"Falha de conexão com a Retaguarda: {e}")
 
     def get_store_info(self, loja_id):
         print(f"[BUSCA] [WORKER] Buscando dados da loja {loja_id} na Retaguarda...")
@@ -115,16 +130,15 @@ class OdbcWorker:
         odbc_timeout = 5  # segundos — Login + query timeout via pyodbc
 
         def _connect_and_run():
-            conn = pyodbc.connect(
-                f'DRIVER={{SQL Server}};'
-                f'SERVER={ip_alvo};'
-                f'DATABASE={base};'
-                f'UID={self.lojas_uid};'
-                f'PWD={self.lojas_pwd};'
-                f'LoginTimeout={odbc_timeout};'
-                f'QueryTimeout={odbc_timeout};',
+            conn_str = _build_connection_string(
+                ip_alvo,
+                base,
+                self.lojas_uid,
+                self.lojas_pwd,
                 timeout=odbc_timeout
             )
+            conn_str += f"QueryTimeout={odbc_timeout};"
+            conn = pyodbc.connect(conn_str, timeout=odbc_timeout)
             cursor = conn.cursor()
             try:
                 cursor.execute(sql_clean)
@@ -151,15 +165,14 @@ class OdbcWorker:
 
     def execute_query(self, ip_alvo, base, sql, timeout=3):
         def _connect_and_run():
-            conn = pyodbc.connect(
-                f'DRIVER={{SQL Server}};'
-                f'SERVER={ip_alvo};'
-                f'DATABASE={base};'
-                f'UID={self.lojas_uid};'
-                f'PWD={self.lojas_pwd};'
-                f'LoginTimeout={timeout};',
+            conn_str = _build_connection_string(
+                ip_alvo,
+                base,
+                self.lojas_uid,
+                self.lojas_pwd,
                 timeout=timeout
             )
+            conn = pyodbc.connect(conn_str, timeout=timeout)
             cursor = conn.cursor()
             cursor.execute(sql)
             row = cursor.fetchone()
