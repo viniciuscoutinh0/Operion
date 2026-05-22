@@ -285,7 +285,7 @@ def scan_pc(ip: str, tipo: str, caixa_id: int | None = None) -> dict:
         })
 
         log.info(
-            f"[{ip}] ✅ host={hostname} | RAM={ram_mb}MB | CPU={cpu_nucleos} | "
+            f"[{ip}] [OK] host={hostname} | RAM={ram_mb}MB | CPU={cpu_nucleos} | "
             f"SQL {sql_version} {sql_level} ({sql_edition}) | OS={os_version}"
         )
         return base

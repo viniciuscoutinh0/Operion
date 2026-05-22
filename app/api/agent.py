@@ -93,7 +93,7 @@ def _run_scan_background(loja_id: int):
         for res in resultados:
             _upsert_snapshot(db, res)
     except Exception as e:
-        print(f"❌ [WMI SCAN] Erro no scan da loja {loja_id}: {e}")
+        print(f"[ERRO] [WMI SCAN] Erro no scan da loja {loja_id}: {e}")
     finally:
         db.close()
         _scan_running.discard(loja_id)

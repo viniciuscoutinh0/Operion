@@ -63,11 +63,11 @@ class OdbcWorker:
                 )
                 return conn
             except Exception as inner_e:
-                print(f"❌ [WORKER] Erro ao conectar na Retaguarda: {inner_e}")
+                print(f"[ERRO] [WORKER] Erro ao conectar na Retaguarda: {inner_e}")
                 raise WorkerExecutionError(f"Falha de conexão com a Retaguarda: {inner_e}")
 
     def get_store_info(self, loja_id):
-        print(f"🔍 [WORKER] Buscando dados da loja {loja_id} na Retaguarda...")
+        print(f"[BUSCA] [WORKER] Buscando dados da loja {loja_id} na Retaguarda...")
         conn = self.connect_retaguarda()
         cursor = conn.cursor()
         
@@ -86,7 +86,7 @@ class OdbcWorker:
         pdvs = [{"caixa": int(r[0]), "ip": r[1]} for r in cursor.fetchall()]
         
         conn.close()
-        print(f"✅ [WORKER] Dados da loja {loja_id} encontrados. Servidor: {ip_servidor}, PDVs: {len(pdvs)}")
+        print(f"[OK] [WORKER] Dados da loja {loja_id} encontrados. Servidor: {ip_servidor}, PDVs: {len(pdvs)}")
         return {"ip_servidor": ip_servidor, "pdvs": pdvs}
 
     def execute_sql(self, ip_alvo, base, sql, timeout=10):
@@ -99,17 +99,17 @@ class OdbcWorker:
           3. Executa via ODBC com LoginTimeout=5s
         """
         # ─ 1. Verifica se a máquina está online antes de tentar ODBC ──────────────
-        print(f"⚡ [WORKER] Verificando conexão com {ip_alvo}...")
+        print(f"[TESTE] [WORKER] Verificando conexão com {ip_alvo}...")
         if not _is_reachable(ip_alvo, timeout_seg=3.0):
             msg = f"Máquina offline ou porta 1433 fechada: {ip_alvo}"
-            print(f"🔴 [WORKER] {msg}")
+            print(f"[ERRO] [WORKER] {msg}")
             raise WorkerExecutionError(msg)
 
         # ─ 2. Pré-processa o SQL (remove GO e USE <banco>) ─────────────────
         sql_clean = re.sub(r'^\s*GO\s*$', '', sql, flags=re.IGNORECASE | re.MULTILINE)
         sql_clean = re.sub(r'^\s*USE\s+\S+\s*;?\s*$', '', sql_clean, flags=re.IGNORECASE | re.MULTILINE)
         sql_clean = '\n'.join(line for line in sql_clean.splitlines() if line.strip())
-        print(f"📦 [WORKER] Conectando no banco '{base}' | SQL: {len(sql_clean)} chars")
+        print(f"[SQL] [WORKER] Conectando no banco '{base}' | SQL: {len(sql_clean)} chars")
 
         # ─ 3. Executa via ODBC ────────────────────────────────────────
         odbc_timeout = 5  # segundos — Login + query timeout via pyodbc
@@ -129,7 +129,7 @@ class OdbcWorker:
             try:
                 cursor.execute(sql_clean)
                 conn.commit()
-                print(f"✅ [WORKER] Script executado com sucesso em {ip_alvo}")
+                print(f"[OK] [WORKER] Script executado com sucesso em {ip_alvo}")
             except Exception as e:
                 conn.rollback()
                 raise e
@@ -142,10 +142,10 @@ class OdbcWorker:
             future.result(timeout=odbc_timeout + 5)  # Margem de segurança
         except concurrent.futures.TimeoutError:
             msg = f"Timeout ({odbc_timeout}s) ao executar em {ip_alvo}"
-            print(f"❌ [WORKER] {msg}")
+            print(f"[ERRO] [WORKER] {msg}")
             raise WorkerExecutionError(msg)
         except Exception as e:
-            print(f"❌ [WORKER] Erro SQL em {ip_alvo}: {e}")
+            print(f"[ERRO] [WORKER] Erro SQL em {ip_alvo}: {e}")
             raise WorkerExecutionError(str(e))
 
 
@@ -186,9 +186,9 @@ def _atualizar_log_db(log_id: int, status: str):
             log.status_final = status
             db.commit()
         db.close()
-        print(f"📝 [LOG] Log #{log_id} atualizado para '{status}'")
+        print(f"[LOG] Log #{log_id} atualizado para '{status}'")
     except Exception as e:
-        print(f"⚠️ [LOG] Falha ao atualizar log #{log_id}: {e}")
+        print(f"[AVISO] [LOG] Falha ao atualizar log #{log_id}: {e}")
 
 
 def run_script_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv: str,
@@ -203,7 +203,7 @@ def run_script_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv: s
       - AMBOS          → SERVIDOR + TODOS_PDVS
       - SERVIDOR_PDV   → roda sql_pdv no Servidor (banco PDV)
     """
-    print(f"🚀 [WORKER INICIADO] Job: {job_id} | Script '{script_nome}' | Loja: {loja_id} | Alvo: {alvo}")
+    print(f"[INICIADO] [WORKER INICIADO] Job: {job_id} | Script '{script_nome}' | Loja: {loja_id} | Alvo: {alvo}")
     ACTIVE_JOBS[job_id] = {"status": "rodando", "etapas": []}
     
     def update_etapa(nome, status, detalhe=None):
@@ -281,14 +281,14 @@ def run_script_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv: s
                 time.sleep(0.3)
 
         ACTIVE_JOBS[job_id]["status"] = "concluido"
-        print(f"🏁 [WORKER FINALIZADO] Script '{script_nome}' concluído.")
+        print(f"[FIM] [WORKER FINALIZADO] Script '{script_nome}' concluído.")
 
     except Exception as e:
         status_final = "erro"
         update_etapa("Falha Geral", "erro", detalhe=str(e))
         ACTIVE_JOBS[job_id]["status"] = "erro"
         ACTIVE_JOBS[job_id]["erro_detalhe"] = str(e)
-        print(f"❌ [WORKER FATAL] {e}")
+        print(f"[ERRO] [WORKER FATAL] {e}")
 
     finally:
         # Persiste o status real no banco (pendente → concluido ou erro)
@@ -305,7 +305,7 @@ def run_broadcast_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv
 
     lojas: lista de dicts [{"id": int, "nome": str}, ...]
     """
-    print(f"🌍 [BROADCAST INICIADO] Job: {job_id} | Script '{script_nome}' | {len(lojas)} lojas | Alvo: {alvo}")
+    print(f"[BROADCAST] [BROADCAST INICIADO] Job: {job_id} | Script '{script_nome}' | {len(lojas)} lojas | Alvo: {alvo}")
     ACTIVE_JOBS[job_id] = {"status": "rodando", "etapas": [], "broadcast": True, "total_lojas": len(lojas)}
 
     def update_etapa(nome, status, detalhe=None):
@@ -359,7 +359,7 @@ def run_broadcast_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv
                     try:
                         worker.execute_sql(pdv["ip"], "PDV", sql_f)
                     except Exception as pdv_e:
-                        print(f"⚠️ [BROADCAST] PDV {pdv['caixa']} da {loja_nom}: {pdv_e}")
+                        print(f"[AVISO] [BROADCAST] PDV {pdv['caixa']} da {loja_nom}: {pdv_e}")
                     time.sleep(0.3)
 
             update_etapa(etapa_nome, "sucesso")
@@ -367,14 +367,14 @@ def run_broadcast_task(job_id: str, script_nome: str, sql_servidor: str, sql_pdv
         except Exception as e:
             erros += 1
             update_etapa(etapa_nome, "erro", detalhe=str(e))
-            print(f"❌ [BROADCAST] Falha na {loja_nom}: {e}")
+            print(f"[ERRO] [BROADCAST] Falha na {loja_nom}: {e}")
 
         time.sleep(0.5)  # Pausa entre lojas para não sobrecarregar a rede
 
     status_final = "concluido" if erros == 0 else ("erro" if erros == len(lojas) else "concluido")
     ACTIVE_JOBS[job_id]["status"] = status_final
     ACTIVE_JOBS[job_id]["erros_count"] = erros
-    print(f"🏁 [BROADCAST FINALIZADO] {len(lojas) - erros}/{len(lojas)} lojas com sucesso.")
+    print(f"[FIM] [BROADCAST FINALIZADO] {len(lojas) - erros}/{len(lojas)} lojas com sucesso.")
     _atualizar_log_db(log_id, status_final)
 
 
