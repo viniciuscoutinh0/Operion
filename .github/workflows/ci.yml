@@ -86,6 +86,9 @@ jobs:
         run: npm run lint
         continue-on-error: true  # Lint não bloqueia o build, apenas reporta
 
+      - name: Executar testes unitários (Vitest)
+        run: npm run test
+
       - name: Build de produção (verifica erros de compilação)
         run: npm run build
 
