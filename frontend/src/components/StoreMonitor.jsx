@@ -403,7 +403,7 @@ export default function StoreMonitor() {
   // ── Execução de scripts ──
   const abrirModal = (script) => {
     setScriptSelecionado(script);
-    setAlvo('AMBOS');
+    setAlvo(script.alvo_fixo || 'AMBOS');
     setCaixaId('');
     setModalAberto(true);
   };
@@ -628,12 +628,45 @@ export default function StoreMonitor() {
 
             <form onSubmit={handleExecute}>
               <div style={{ marginBottom: '1rem' }}>
-                <label>Onde deseja rodar este script?</label>
-                <select value={alvo} onChange={e => setAlvo(e.target.value)} style={{ width: '100%', padding: '10px', marginTop: '5px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px' }}>
-                  <option value="AMBOS">Em Todos os PCs (Servidor e Todos os Caixas)</option>
-                  <option value="TODOS_PDVS">Apenas em Todos os Caixas</option>
-                  <option value="SERVIDOR">Apenas no Servidor</option>
-                  <option value="PDV_ESPECIFICO">Apenas em um Caixa Específico</option>
+                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Onde deseja rodar este script?</span>
+                  {scriptSelecionado?.alvo_fixo && (
+                    <span style={{ fontSize: '10px', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px', fontWeight: 600 }}>
+                      🔒 Alvo Fixo
+                    </span>
+                  )}
+                </label>
+                <select 
+                  value={alvo} 
+                  disabled={!!scriptSelecionado?.alvo_fixo}
+                  onChange={e => setAlvo(e.target.value)} 
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    marginTop: '5px', 
+                    background: 'rgba(0,0,0,0.3)', 
+                    color: scriptSelecionado?.alvo_fixo ? '#94a3b8' : 'white', 
+                    border: '1px solid rgba(255,255,255,0.2)', 
+                    borderRadius: '6px',
+                    cursor: scriptSelecionado?.alvo_fixo ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {scriptSelecionado?.alvo_fixo ? (
+                    <option value={scriptSelecionado.alvo_fixo}>
+                      {scriptSelecionado.alvo_fixo === 'SERVIDOR' && 'Apenas no Servidor da Loja'}
+                      {scriptSelecionado.alvo_fixo === 'TODOS_PDVS' && 'Apenas em Todos os Caixas'}
+                      {scriptSelecionado.alvo_fixo === 'SERVIDOR_PDV' && 'No Servidor direcionado ao Banco PDV'}
+                      {scriptSelecionado.alvo_fixo === 'AMBOS' && 'Todos os PCs (Servidor e Caixas)'}
+                      {scriptSelecionado.alvo_fixo === 'PDV_ESPECIFICO' && 'Apenas em um Caixa Específico'}
+                    </option>
+                  ) : (
+                    <>
+                      <option value="AMBOS">Em Todos os PCs (Servidor e Todos os Caixas)</option>
+                      <option value="TODOS_PDVS">Apenas em Todos os Caixas</option>
+                      <option value="SERVIDOR">Apenas no Servidor</option>
+                      <option value="PDV_ESPECIFICO">Apenas em um Caixa Específico</option>
+                    </>
+                  )}
                 </select>
               </div>
 

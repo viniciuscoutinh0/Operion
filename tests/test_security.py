@@ -139,3 +139,51 @@ class TestRBACIsolamento:
         ]
         for p in permissoes_esperadas:
             assert p in permissions, f"Administrador deveria ter '{p}' mas não tem"
+
+
+class TestRestricaoLojas:
+    """Testes para garantir que as lojas 990 e 900 são completamente bloqueadas e restritas."""
+
+    def test_obter_status_loja_restrita_retorna_400(self, client, admin_token):
+        """Acesso à rota de status das lojas 990 e 900 deve retornar 400."""
+        for loja_id in (990, 900):
+            res = client.get(f"/api/lojas/{loja_id}/status", headers=auth_headers(admin_token))
+            assert res.status_code == 400
+            assert "restrito" in res.json().get("detail", "").lower()
+
+    def test_executar_script_loja_restrita_retorna_400(self, client, admin_token):
+        """Tentativa de execução de script em 990 ou 900 deve ser bloqueada com status 400."""
+        for loja_id in (990, 900):
+            res = client.post(
+                "/api/execucoes/",
+                headers=auth_headers(admin_token),
+                json={
+                    "script_id": 1,
+                    "loja_id": loja_id,
+                    "parametros": {}
+                }
+            )
+            assert res.status_code == 400
+            assert "restrita" in res.json().get("detail", "").lower()
+
+    def test_agente_scan_loja_restrita_retorna_400(self, client, admin_token):
+        """Tentativas de disparar scan WMI em lojas restritas deve retornar 400."""
+        for loja_id in (990, 900):
+            res = client.post(f"/api/agentes/scan/{loja_id}", headers=auth_headers(admin_token))
+            assert res.status_code == 400
+            assert "restrito" in res.json().get("detail", "").lower()
+
+    def test_agente_status_loja_restrita_retorna_400(self, client, admin_token):
+        """Tentativas de consultar status de PCs em lojas restritas deve retornar 400."""
+        for loja_id in (990, 900):
+            res = client.get(f"/api/agentes/{loja_id}", headers=auth_headers(admin_token))
+            assert res.status_code == 400
+            assert "restrito" in res.json().get("detail", "").lower()
+
+    def test_agente_scan_status_loja_restrita_retorna_400(self, client, admin_token):
+        """Tentativas de checar status de scan em lojas restritas deve retornar 400."""
+        for loja_id in (990, 900):
+            res = client.get(f"/api/agentes/scan/{loja_id}/status", headers=auth_headers(admin_token))
+            assert res.status_code == 400
+            assert "restrito" in res.json().get("detail", "").lower()
+

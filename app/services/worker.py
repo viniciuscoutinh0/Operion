@@ -462,29 +462,37 @@ def run_store_scan(loja_id: int, regras: list):
                 regras_agrupadas[nome_g]["regras"].append(regra)
                 
         for nome_grupo, data_grupo in regras_agrupadas.items():
-            grupo_valido = True
-            erros_do_grupo = []
-            tooltip_lines = [f"Objetivo: {data_grupo['descricao']}\n", "Regras analisadas:"]
+            regras_ok = []
+            regras_erro = []
             
             for regra in data_grupo["regras"]:
-                tooltip_lines.append(f"• {regra['regra_nome']} (Esp: {regra['valor_esperado']})")
                 try:
                     res = worker.execute_query(ip, base, regra["sql_query"], timeout=3)
-                    if res.strip().upper() != regra["valor_esperado"].upper():
-                        grupo_valido = False
-                        erros_do_grupo.append(f"Retornou: {res}")
+                    res_stripped = res.strip()
+                    if res_stripped.upper() == regra["valor_esperado"].upper():
+                        regras_ok.append(regra)
+                    else:
+                        regras_erro.append((regra, f"Retornou: {res_stripped}"))
                 except Exception as e:
-                    grupo_valido = False
-                    erros_do_grupo.append("Erro na Query SQL")
+                    regras_erro.append((regra, "Erro na Query SQL"))
                     
-            tooltip = "\n".join(tooltip_lines)
-                    
-            if grupo_valido:
+            if not regras_erro:
+                # Todas as regras do grupo passaram
+                tooltip_lines = [f"Objetivo: {data_grupo['descricao']}\n", "Regras analisadas:"]
+                for regra in regras_ok:
+                    tooltip_lines.append(f"• {regra['regra_nome']} (Esp: {regra['valor_esperado']})")
+                tooltip = "\n".join(tooltip_lines)
                 parametros_ok.append({"nome": nome_grupo, "tooltip": f"Validações OK:\n{tooltip}"})
             else:
-                # Remove itens vazios
-                erros_do_grupo = [e for e in set(erros_do_grupo) if e]
-                msg_erro = f"{nome_grupo} ({' | '.join(erros_do_grupo)})"
+                # Pelo menos uma regra falhou
+                tooltip_lines = [f"Objetivo: {data_grupo['descricao']}\n", "Parâmetro(s) incorreto(s):"]
+                erros_do_grupo = []
+                for regra, erro_msg in regras_erro:
+                    tooltip_lines.append(f"• {regra['regra_nome']} -> {erro_msg} (Esperado: {regra['valor_esperado']})")
+                    erros_do_grupo.append(erro_msg)
+                
+                tooltip = "\n".join(tooltip_lines)
+                msg_erro = nome_grupo
                 erros.append({"nome": msg_erro, "tooltip": f"Falha na validação:\n{tooltip}"})
                     
         return {"ip": ip, "caixa": caixa_id, "status": status, "parametros": parametros_ok, "erros": erros}

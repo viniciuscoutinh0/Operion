@@ -131,6 +131,8 @@ def listar_lojas(db: Session = Depends(get_db), current_user: dict = Depends(get
 
 @router.get("/lojas/{loja_id}/status", tags=["Dashboard e Monitor"])
 def status_loja(loja_id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if loja_id in (990, 900):
+        raise HTTPException(status_code=400, detail="Acesso restrito para esta loja.")
     try:
         regras = db.query(AuditRuleModel).all()
         resultado = run_store_scan(loja_id, regras)
@@ -153,6 +155,12 @@ def executar_script(
     script_id  = req.get("script_id")
     loja_id    = req.get("loja_id")
     parametros = req.get("parametros", {})
+
+    try:
+        if int(loja_id) in (990, 900):
+            raise HTTPException(status_code=400, detail="Operações nas lojas 990 e 900 são restritas por segurança.")
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="Identificador de loja inválido.")
 
     script = db.query(ScriptModel).filter(ScriptModel.id == script_id).first()
     if not script:
@@ -224,7 +232,7 @@ def executar_broadcast(
     if not script:
         raise HTTPException(status_code=404, detail="Script não encontrado")
     
-    # 1. Busca todas as lojas ativas na Retaguarda para saber onde aplicar
+    # 1. Busca todas as lojas ativas na Retaguarda para saber onde aplicar (excluindo 990 e 900)
     try:
         worker = OdbcWorker()
         conn = worker.connect_retaguarda()
@@ -232,7 +240,7 @@ def executar_broadcast(
         query = """
         SELECT L.LOJA, L.NOME_RESUMIDO
         FROM LOJAS L WITH(NOLOCK)
-        WHERE L.ATIVA = 'S'
+        WHERE L.ATIVA = 'S' AND L.LOJA NOT IN (990, 900)
         ORDER BY L.LOJA
         """
         cursor.execute(query)
@@ -278,6 +286,9 @@ def executar_broadcast(
 
         lojas = [l for l in lojas if l["id"] in ids_filtrados]
         loja_log_id = f"LOJAS: {', '.join(str(x) for x in ids_filtrados)}"
+
+    # Garante duplamente que nenhuma loja restrita passe por filtros de intervalo ou lista manual
+    lojas = [l for l in lojas if l["id"] not in (990, 900)]
 
     if not lojas:
         raise HTTPException(status_code=400, detail="Nenhuma loja ativa correspondeu ao critério de filtro selecionado.")

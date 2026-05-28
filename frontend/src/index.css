@@ -125,6 +125,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.pc-card:hover {
+  z-index: 50;
 }
 
 .pc-online {
@@ -168,11 +174,11 @@ body {
   gap: 6px;
   flex-wrap: wrap;
   margin-top: 8px;
+  position: relative; /* Anchor para as caixas flutuantes */
 }
 
 /* Tooltip styling */
 .tooltip-container {
-  position: relative;
   display: inline-flex;
 }
 
@@ -180,7 +186,7 @@ body {
   visibility: hidden;
   opacity: 0;
   width: max-content;
-  max-width: 320px;
+  max-width: 280px;
   background-color: #0f172a;
   color: #f8fafc;
   text-align: left;
@@ -188,8 +194,10 @@ body {
   padding: 12px;
   position: absolute;
   z-index: 999;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 8px);
+  bottom: auto;
   left: 50%;
+  right: auto;
   transform: translateX(-50%);
   transition: opacity 0.2s, visibility 0.2s;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -198,18 +206,22 @@ body {
   line-height: 1.4;
   white-space: pre-wrap;
   font-weight: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Tooltip arrow */
 .tooltip-container .tooltip-text::after {
   content: "";
   position: absolute;
-  top: 100%;
+  bottom: 100%;
+  top: auto;
   left: 50%;
+  right: auto;
   margin-left: -6px;
   border-width: 6px;
   border-style: solid;
-  border-color: #0f172a transparent transparent transparent;
+  border-color: transparent transparent #0f172a transparent;
 }
 
 .tooltip-container:hover .tooltip-text {

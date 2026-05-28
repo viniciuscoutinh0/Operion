@@ -42,6 +42,10 @@ class PcStatusResponse(BaseModel):
     status: str
     ultima_atualizacao: Optional[datetime] = None
 
+    # Integração RMM (Opcional)
+    tactical_agent_id: Optional[str] = None
+    tactical_remote_control_url: Optional[str] = None
+
 
 class ScanRequest(BaseModel):
     loja_id: int

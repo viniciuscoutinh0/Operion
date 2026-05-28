@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
+import os
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -14,6 +15,7 @@ router = APIRouter()
 
 # Cache em memória para evitar scans simultâneos da mesma loja
 _scan_running: set = set()
+
 
 
 def _upsert_snapshot(db: Session, data: dict):
@@ -125,6 +127,8 @@ def iniciar_scan(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    if loja_id in (990, 900):
+        raise HTTPException(status_code=400, detail="Acesso restrito para esta loja.")
     if loja_id in _scan_running:
         return {"status": "em_andamento", "message": f"Scan da loja {loja_id} já está em execução."}
 
@@ -144,6 +148,8 @@ def status_pcs_loja(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    if loja_id in (990, 900):
+        raise HTTPException(status_code=400, detail="Acesso restrito para esta loja.")
     snapshots = db.query(PcStatusSnapshot).filter(
         PcStatusSnapshot.loja_id == loja_id
     ).order_by(PcStatusSnapshot.tipo, PcStatusSnapshot.caixa_id).all()
@@ -160,7 +166,9 @@ def status_todos_pcs(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    snapshots = db.query(PcStatusSnapshot).order_by(
+    snapshots = db.query(PcStatusSnapshot).filter(
+        PcStatusSnapshot.loja_id.notin_([990, 900])
+    ).order_by(
         PcStatusSnapshot.loja_id, PcStatusSnapshot.tipo, PcStatusSnapshot.caixa_id
     ).all()
     return snapshots
@@ -175,5 +183,7 @@ def status_scan(
     loja_id: int,
     current_user: dict = Depends(get_current_user)
 ):
+    if loja_id in (990, 900):
+        raise HTTPException(status_code=400, detail="Acesso restrito para esta loja.")
     em_andamento = loja_id in _scan_running
     return {"loja_id": loja_id, "scan_em_andamento": em_andamento}
