@@ -28,41 +28,144 @@ create_tables()
 # Popula banco e garante pelo menos um administrador ativo (Failsafe Auto-Recovery)
 db = SessionLocal()
 try:
-    # ── 1. Semente de Grupos de Permissões Nativos ─────────────────────────────
-    grupos_seed = [
-        {
-            "nome": "Administradores",
-            "descricao": "Administração total da TI, infraestrutura, acessos e execução de scripts",
-            "permissoes": "VER_DASHBOARD,EXECUTAR_SCRIPT,GERENCIAR_COFRE,GERENCIAR_AUDITORIA,VER_LOGS,EXECUTAR_BROADCAST,GERENCIAR_EQUIPE"
-        },
-        {
-            "nome": "Desenvolvedor",
-            "descricao": "Homologação de scripts SQL, consulta de logs e visualização de monitoramento",
-            "permissoes": "VER_DASHBOARD,GERENCIAR_COFRE,VER_LOGS,EXECUTAR_SCRIPT"
-        },
-        {
-            "nome": "Suporte N2",
-            "descricao": "Suporte de nível intermediário com permissões de execução pontual e auditoria",
-            "permissoes": "VER_DASHBOARD,EXECUTAR_SCRIPT,VER_LOGS,GERENCIAR_AUDITORIA"
-        },
-        {
-            "nome": "Suporte N1",
-            "descricao": "Suporte de nível básico com permissão de monitoramento em modo leitura",
-            "permissoes": "VER_DASHBOARD"
-        }
-    ]
+    # ── 1. Semente de Grupos de Permissões Nativos com Hierarquia ───────────────
+    # Grupo Administradores (Raiz)
+    administradores = db.query(UserGroupModel).filter(UserGroupModel.nome == "Administradores").first()
+    if not administradores:
+        print("[SEED] Criando grupo de controle total: Administradores...")
+        administradores = UserGroupModel(
+            nome="Administradores",
+            descricao="Administração total da TI, infraestrutura, acessos e execução de scripts",
+            permissoes="VER_DASHBOARD,EXECUTAR_SCRIPT,GERENCIAR_COFRE,GERENCIAR_AUDITORIA,VER_LOGS,EXECUTAR_BROADCAST,GERENCIAR_EQUIPE",
+            parent_id=None
+        )
+        db.add(administradores)
+        db.commit()
+        db.refresh(administradores)
 
-    for g_data in grupos_seed:
-        grupo_db = db.query(UserGroupModel).filter(UserGroupModel.nome == g_data["nome"]).first()
-        if not grupo_db:
-            print(f"[SEED] Criando grupo padrão: {g_data['nome']}...")
-            novo_g = UserGroupModel(
-                nome=g_data["nome"],
-                descricao=g_data["descricao"],
-                permissoes=g_data["permissoes"]
+    # 1. Promofarma (Raiz)
+    promofarma = db.query(UserGroupModel).filter(UserGroupModel.nome == "Promofarma").first()
+    if not promofarma:
+        print("[SEED] Criando nó raiz: Promofarma...")
+        promofarma = UserGroupModel(
+            nome="Promofarma",
+            descricao="Organização Farmacêutica Nakano / Promofarma (Raiz Corporativa)",
+            permissoes="VER_DASHBOARD"
+        )
+        db.add(promofarma)
+        db.commit()
+        db.refresh(promofarma)
+
+    # 2. TI (Pai: Promofarma)
+    ti = db.query(UserGroupModel).filter(UserGroupModel.nome == "TI").first()
+    if not ti:
+        print("[SEED] Criando departamento: TI...")
+        ti = UserGroupModel(
+            nome="TI",
+            descricao="Diretoria de Tecnologia, Sistemas e Segurança",
+            permissoes="VER_DASHBOARD,GERENCIAR_EQUIPE,VER_LOGS",
+            parent_id=promofarma.id
+        )
+        db.add(ti)
+        db.commit()
+        db.refresh(ti)
+    elif ti.parent_id != promofarma.id:
+        ti.parent_id = promofarma.id
+        db.commit()
+
+    # 3. Desenvolvimento (Pai: TI)
+    desenvolvimento = db.query(UserGroupModel).filter(UserGroupModel.nome == "Desenvolvimento").first()
+    if not desenvolvimento:
+        # Se existir "Desenvedor" ou "Desenvolvedor" legado, podemos migrar
+        desenv_legado = db.query(UserGroupModel).filter(UserGroupModel.nome.in_(["Desenvolvedor", "Desenvolvedor"])).first()
+        if desenv_legado:
+            desenv_legado.nome = "Desenvolvimento"
+            desenv_legado.descricao = "Engenharia de Software e homologação de scripts SQL"
+            desenv_legado.parent_id = ti.id
+            db.commit()
+            desenvolvimento = desenv_legado
+        else:
+            print("[SEED] Criando time: Desenvolvimento...")
+            desenvolvimento = UserGroupModel(
+                nome="Desenvolvimento",
+                descricao="Engenharia de Software e homologação de scripts SQL",
+                permissoes="VER_DASHBOARD,GERENCIAR_COFRE,VER_LOGS,EXECUTAR_SCRIPT",
+                parent_id=ti.id
             )
-            db.add(novo_g)
-    db.commit()
+            db.add(desenvolvimento)
+            db.commit()
+            db.refresh(desenvolvimento)
+    elif desenvolvimento.parent_id != ti.id:
+        desenvolvimento.parent_id = ti.id
+        db.commit()
+
+    # 4. Infraestrutura (Pai: TI)
+    infra = db.query(UserGroupModel).filter(UserGroupModel.nome == "Infraestrutura").first()
+    if not infra:
+        print("[SEED] Criando time: Infraestrutura...")
+        infra = UserGroupModel(
+            nome="Infraestrutura",
+            descricao="Gestão de servidores, bancos de dados e conectividade",
+            permissoes="VER_DASHBOARD,EXECUTAR_BROADCAST,VER_LOGS",
+            parent_id=ti.id
+        )
+        db.add(infra)
+        db.commit()
+        db.refresh(infra)
+    elif infra.parent_id != ti.id:
+        infra.parent_id = ti.id
+        db.commit()
+
+    # 5. Suporte (Pai: TI)
+    suporte = db.query(UserGroupModel).filter(UserGroupModel.nome == "Suporte").first()
+    if not suporte:
+        print("[SEED] Criando time: Suporte...")
+        suporte = UserGroupModel(
+            nome="Suporte",
+            descricao="Central de Serviços e atendimento a lojas",
+            permissoes="VER_DASHBOARD,EXECUTAR_SCRIPT,VER_LOGS",
+            parent_id=ti.id
+        )
+        db.add(suporte)
+        db.commit()
+        db.refresh(suporte)
+    elif suporte.parent_id != ti.id:
+        suporte.parent_id = ti.id
+        db.commit()
+
+    # 6. Suporte N2 (Pai: Suporte)
+    suporte_n2 = db.query(UserGroupModel).filter(UserGroupModel.nome == "Suporte N2").first()
+    if not suporte_n2:
+        print("[SEED] Criando cargo: Suporte N2...")
+        suporte_n2 = UserGroupModel(
+            nome="Suporte N2",
+            descricao="Suporte avançado e gestão de auditoria de lojas",
+            permissoes="VER_DASHBOARD,EXECUTAR_SCRIPT,VER_LOGS,GERENCIAR_AUDITORIA",
+            parent_id=suporte.id
+        )
+        db.add(suporte_n2)
+        db.commit()
+        db.refresh(suporte_n2)
+    elif suporte_n2.parent_id != suporte.id:
+        suporte_n2.parent_id = suporte.id
+        db.commit()
+
+    # 7. Suporte N1 (Pai: Suporte)
+    suporte_n1 = db.query(UserGroupModel).filter(UserGroupModel.nome == "Suporte N1").first()
+    if not suporte_n1:
+        print("[SEED] Criando cargo: Suporte N1...")
+        suporte_n1 = UserGroupModel(
+            nome="Suporte N1",
+            descricao="Monitoramento básico e suporte operacional de lojas",
+            permissoes="VER_DASHBOARD",
+            parent_id=suporte.id
+        )
+        db.add(suporte_n1)
+        db.commit()
+        db.refresh(suporte_n1)
+    elif suporte_n1.parent_id != suporte.id:
+        suporte_n1.parent_id = suporte.id
+        db.commit()
 
     # Busca o grupo de TI para usar no failsafe
     grupo_ti = db.query(UserGroupModel).filter(UserGroupModel.nome == "Administradores").first()

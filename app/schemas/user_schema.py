@@ -6,6 +6,7 @@ class UserGroupCreate(BaseModel):
     nome: str
     descricao: Optional[str] = None
     permissoes: str = ""  # Comma-separated list of active permission keys
+    parent_id: Optional[int] = None
 
 
 class UserGroupResponse(BaseModel):
@@ -15,6 +16,7 @@ class UserGroupResponse(BaseModel):
     nome: str
     descricao: Optional[str] = None
     permissoes: str
+    parent_id: Optional[int] = None
 
 
 class UserCreate(BaseModel):

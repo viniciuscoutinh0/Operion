@@ -18,6 +18,24 @@ router = APIRouter()
 #  USER GROUPS (DYNAMICAL PERMISSIONS)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def check_circular_parent(grupo_id: int, parent_id: int, db: Session) -> bool:
+    if not parent_id:
+        return False
+    if grupo_id == parent_id:
+        return True
+    
+    current_parent_id = parent_id
+    visited = {grupo_id}
+    while current_parent_id:
+        if current_parent_id in visited:
+            return True
+        visited.add(current_parent_id)
+        parent_group = db.query(UserGroupModel).filter(UserGroupModel.id == current_parent_id).first()
+        if not parent_group:
+            break
+        current_parent_id = parent_group.parent_id
+    return False
+
 @router.get("/grupos/", response_model=List[UserGroupResponse], tags=["Admin - Grupos"])
 def listar_grupos(db: Session = Depends(get_db)):
     return db.query(UserGroupModel).all()
@@ -28,10 +46,16 @@ def criar_grupo(req: UserGroupCreate, db: Session = Depends(get_db)):
     if existente:
         raise HTTPException(status_code=400, detail="Já existe um grupo com este nome.")
     
+    if req.parent_id:
+        parent_exists = db.query(UserGroupModel).filter(UserGroupModel.id == req.parent_id).first()
+        if not parent_exists:
+            raise HTTPException(status_code=400, detail="Grupo superior selecionado não existe.")
+    
     novo_grupo = UserGroupModel(
         nome=req.nome,
         descricao=req.descricao,
-        permissoes=req.permissoes
+        permissoes=req.permissoes,
+        parent_id=req.parent_id
     )
     db.add(novo_grupo)
     db.commit()
@@ -47,10 +71,20 @@ def editar_grupo(grupo_id: int, req: UserGroupCreate, db: Session = Depends(get_
     # Impede renomear ou alterar o grupo raiz "Administradores" para evitar que se percam permissões administrativas fundamentais
     if grupo.nome == "Administradores" and req.nome != "Administradores":
         raise HTTPException(status_code=400, detail="Não é permitido renomear o grupo administrativo raiz Administradores.")
+    
+    if req.parent_id:
+        if req.parent_id == grupo_id:
+            raise HTTPException(status_code=400, detail="Um grupo não pode ser pai de si mesmo.")
+        parent_exists = db.query(UserGroupModel).filter(UserGroupModel.id == req.parent_id).first()
+        if not parent_exists:
+            raise HTTPException(status_code=400, detail="Grupo superior selecionado não existe.")
+        if check_circular_parent(grupo_id, req.parent_id, db):
+            raise HTTPException(status_code=400, detail="Estrutura circular detectada. Este grupo superior geraria uma referência cíclica.")
         
     grupo.nome = req.nome
     grupo.descricao = req.descricao
     grupo.permissoes = req.permissoes
+    grupo.parent_id = req.parent_id
     db.commit()
     db.refresh(grupo)
     return grupo
@@ -64,6 +98,14 @@ def deletar_grupo(grupo_id: int, db: Session = Depends(get_db)):
     if grupo.nome == "Administradores":
         raise HTTPException(status_code=400, detail="Não é permitido excluir o grupo raiz Administradores.")
         
+    # Verifica se há subgrupos associados a este grupo
+    subgrupo = db.query(UserGroupModel).filter(UserGroupModel.parent_id == grupo_id).first()
+    if subgrupo:
+        raise HTTPException(
+            status_code=400,
+            detail="Não é permitido excluir um grupo que possui subgrupos. Remova ou altere o pai dos subgrupos primeiro."
+        )
+
     # Verifica se há algum usuário vinculado a este grupo
     usuario_vinculado = db.query(UserModel).filter(UserModel.grupo_id == grupo_id).first()
     if usuario_vinculado:

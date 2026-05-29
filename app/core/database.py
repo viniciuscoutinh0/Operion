@@ -34,6 +34,7 @@ def create_tables():
         ("scripts", "criado_por", "VARCHAR(100)"),
         ("scripts", "modificado_por", "VARCHAR(100)"),
         ("usuarios", "grupo_id", "INTEGER"),
+        ("user_grupos", "parent_id", "INTEGER"),
     ]
     
     from sqlalchemy import text

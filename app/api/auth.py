@@ -2,8 +2,34 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.user import UserModel
+from app.models.user_group import UserGroupModel
 from app.schemas.user_schema import LoginRequest, ChangePasswordRequest
 from app.core.security import verify_password, create_access_token, get_password_hash
+
+def obter_permissoes_recursivas(grupo, db: Session) -> str:
+    if not grupo:
+        return ""
+    
+    permissoes_set = set(p.strip() for p in grupo.permissoes.split(",") if p.strip())
+    
+    # Sobe a hierarquia de forma recursiva (evitando ciclos)
+    current_parent_id = grupo.parent_id
+    visited = {grupo.id}
+    while current_parent_id:
+        if current_parent_id in visited:
+            break  # Evita ciclo infinito
+        visited.add(current_parent_id)
+        parent_group = db.query(UserGroupModel).filter(UserGroupModel.id == current_parent_id).first()
+        if not parent_group:
+            break
+        if parent_group.permissoes:
+            for p in parent_group.permissoes.split(","):
+                p_clean = p.strip()
+                if p_clean:
+                    permissoes_set.add(p_clean)
+        current_parent_id = parent_group.parent_id
+        
+    return ",".join(sorted(permissoes_set))
 
 router = APIRouter()
 
@@ -27,7 +53,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     permissoes = ""
     grupo_nome = ""
     if user.grupo:
-        permissoes = user.grupo.permissoes
+        permissoes = obter_permissoes_recursivas(user.grupo, db)
         grupo_nome = user.grupo.nome
     elif user.role == "Admin":
         permissoes = "VER_DASHBOARD,EXECUTAR_SCRIPT,GERENCIAR_COFRE,GERENCIAR_AUDITORIA,VER_LOGS,EXECUTAR_BROADCAST,GERENCIAR_EQUIPE"
@@ -64,7 +90,7 @@ def mudar_senha(user_id: int, req: ChangePasswordRequest, db: Session = Depends(
     permissoes = ""
     grupo_nome = ""
     if user.grupo:
-        permissoes = user.grupo.permissoes
+        permissoes = obter_permissoes_recursivas(user.grupo, db)
         grupo_nome = user.grupo.nome
     elif user.role == "Admin":
         permissoes = "VER_DASHBOARD,EXECUTAR_SCRIPT,GERENCIAR_COFRE,GERENCIAR_AUDITORIA,VER_LOGS,EXECUTAR_BROADCAST,GERENCIAR_EQUIPE"
