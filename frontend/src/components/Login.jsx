@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { KeyRound, ShieldCheck, Mail } from 'lucide-react';
 import { API } from '../config';
 
-console.log(API);
-
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
